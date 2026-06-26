@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Пульт лінії — Грибна підлива</title>
+<style>
+  :root{
+    --bg:#14100C; --panel:#1F1813; --panel2:#2A2017; --edge:#3A2D20;
+    --text:#F0E6D6; --dim:#9C8C76;
+    --ember:#F0851F; --signal:#E03B25; --warn:#E7C34A; --ok:#7E9136;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --disp:"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{background:var(--bg);color:var(--text);font-family:var(--disp)}
+  body{
+    padding:14px 14px calc(28px + env(safe-area-inset-bottom));
+    max-width:560px;margin:0 auto;line-height:1.4;
+    background-image:radial-gradient(120% 80% at 50% -10%, #221a12 0%, var(--bg) 60%);
+    min-height:100vh;
+  }
+
+  .top{margin-bottom:12px}
+  .eyebrow{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ember);font-weight:700}
+  .top h1{font-size:19px;letter-spacing:.01em;font-weight:800;margin-top:2px}
+  .top .sub{font-size:12px;color:var(--dim);margin-top:2px}
+
+  .card{background:var(--panel);border:1px solid var(--edge);border-radius:14px}
+
+  /* ---- prep checklist ---- */
+  .prep{margin-bottom:12px;overflow:hidden}
+  .prephead{display:flex;align-items:center;gap:10px;padding:13px 15px;cursor:pointer;user-select:none}
+  .prephead .ttl{font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;flex:1}
+  .prephead .cnt{font-family:var(--mono);font-size:13px;color:var(--warn);font-weight:700}
+  .prephead .cnt.done{color:var(--ok)}
+  .prephead .chev{color:var(--dim);transition:transform .2s}
+  .prep.open .prephead .chev{transform:rotate(90deg)}
+  .prepbody{max-height:0;overflow:hidden;transition:max-height .3s ease}
+  .prep.open .prepbody{max-height:520px}
+  .checkrow{display:flex;align-items:flex-start;gap:12px;padding:11px 15px;border-top:1px solid #2c2117;cursor:pointer}
+  .box{width:22px;height:22px;border-radius:6px;border:2px solid var(--edge);flex:none;margin-top:1px;
+    display:flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s}
+  .checkrow.on .box{background:var(--ok);border-color:var(--ok)}
+  .box svg{width:13px;height:13px;opacity:0;transition:opacity .15s}
+  .checkrow.on .box svg{opacity:1}
+  .checkrow .lbl{font-size:14px;line-height:1.35}
+  .checkrow.on .lbl{color:var(--dim);text-decoration:line-through}
+  .grouplbl{padding:11px 15px 5px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;border-top:1px solid #2c2117}
+  .grouplbl.buy{color:var(--ember)}
+  .grouplbl.have{color:var(--dim)}
+
+  /* ---- clock ---- */
+  .clockwrap{padding:14px 16px;margin-bottom:12px;background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--edge);border-radius:16px}
+  .clockrow{display:flex;align-items:center;justify-content:space-between;gap:14px}
+  .clock{font-family:var(--mono);font-size:clamp(44px,15vw,64px);font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .clock .unit{font-size:.4em;color:var(--dim);margin-left:6px;letter-spacing:.05em}
+  .phase{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);text-align:right}
+  .phase b{display:block;color:var(--ember);font-size:13px;letter-spacing:.04em;margin-top:3px}
+  .controls{display:flex;gap:8px;margin-top:14px}
+  button{font-family:var(--disp);cursor:pointer;border:none;border-radius:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;font-size:14px;padding:14px 0;flex:1;transition:transform .08s,filter .15s}
+  button:active{transform:scale(.97)}
+  .btn-go{background:var(--ember);color:#1a1109}
+  .btn-go.run{background:var(--panel2);color:var(--text);border:1px solid var(--edge)}
+  .btn-reset{background:transparent;color:var(--dim);border:1px solid var(--edge);flex:0 0 92px}
+  .preview{display:flex;align-items:center;gap:7px;margin-top:11px;font-size:12px;color:var(--dim)}
+  .preview label{display:flex;align-items:center;gap:7px;cursor:pointer}
+  .sw{width:38px;height:22px;background:var(--edge);border-radius:99px;position:relative;transition:background .2s;flex:none}
+  .sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--dim);transition:transform .2s,background .2s}
+  .preview input{display:none}
+  .preview input:checked + .sw{background:var(--ember)}
+  .preview input:checked + .sw::after{transform:translateX(16px);background:#1a1109}
+
+  /* ---- NOW ---- */
+  .now{position:relative;border-radius:16px;padding:16px;margin-bottom:12px;overflow:hidden;background:linear-gradient(180deg,#2c2014,#231a12);border:1px solid var(--edge)}
+  .now.fire{border-color:var(--signal);box-shadow:0 0 0 1px var(--signal),0 0 26px -6px var(--signal)}
+  .now .tag{display:inline-flex;align-items:center;gap:7px;font-size:11px;letter-spacing:.2em;text-transform:uppercase;font-weight:800;color:var(--ember)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--ember)}
+  .now.fire .tag{color:var(--signal)}
+  .now.fire .dot{background:var(--signal);animation:pulse 1s ease-out infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(224,59,37,.6)}100%{box-shadow:0 0 0 12px rgba(224,59,37,0)}}
+  .now h2{font-size:22px;font-weight:800;margin:8px 0 6px}
+  .now p{font-size:15px;color:#d9cdb9}
+  .look{display:none;margin-top:13px;padding:10px 12px;border-radius:10px;background:rgba(231,195,74,.12);border:1px solid rgba(231,195,74,.4);align-items:center;gap:9px}
+  .look.show{display:flex}
+  .look .li{font-size:13px;color:var(--warn);flex:1}
+  .look .li b{color:var(--text)}
+  .look .lcd{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--warn);white-space:nowrap}
+
+  /* ---- timeline ---- */
+  .tlhead{display:flex;justify-content:space-between;align-items:baseline;margin:0 2px 10px}
+  .tlhead .t{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);font-weight:700}
+  .tlhead .legend{font-size:11px;color:var(--dim)}
+  .tl{position:relative;background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:34px 16px 30px}
+  .tlbar{position:relative;height:8px;background:#171108;border-radius:99px;border:1px solid #2c2117}
+  .tlfill{position:absolute;top:0;bottom:0;left:0;width:0;background:linear-gradient(90deg,#a8590f,var(--ember));border-radius:99px}
+  .tlknob{position:absolute;top:50%;left:0;width:14px;height:14px;border-radius:50%;background:var(--ember);transform:translate(-50%,-50%);box-shadow:0 0 10px 1px var(--ember);z-index:3}
+  .mk{position:absolute;top:50%;transform:translate(-50%,-50%);z-index:2}
+  .mk .pt{width:11px;height:11px;border-radius:50%;background:#2c2117;border:2px solid var(--edge);transition:background .2s,border-color .2s}
+  .mk.done .pt{background:var(--ember);border-color:var(--ember)}
+  .mk.current .pt{background:var(--signal);border-color:var(--signal);box-shadow:0 0 8px 1px var(--signal)}
+  .mk .min{position:absolute;top:16px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:10px;color:var(--dim);white-space:nowrap}
+  .mk .nm{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--dim);white-space:nowrap;font-weight:600}
+  .mk.current .nm{color:var(--text)}
+
+  /* ---- all steps ---- */
+  .steplist{display:flex;flex-direction:column;gap:7px}
+  .stepitem{background:var(--panel);border:1px solid var(--edge);border-radius:11px;overflow:hidden;transition:border-color .2s,box-shadow .2s}
+  .stepitem.current{border-color:var(--ember);box-shadow:0 0 0 1px var(--ember)}
+  .sihead{display:flex;align-items:center;gap:11px;padding:12px 13px;cursor:pointer;user-select:none}
+  .sinum{font-family:var(--mono);font-size:12px;color:var(--ember);font-weight:700;flex:none;min-width:52px}
+  .stepitem.done .sinum{color:var(--dim)}
+  .sititle{font-size:14px;font-weight:700;flex:1;line-height:1.25}
+  .stepitem.done .sititle{color:var(--dim)}
+  .sichev{color:var(--dim);font-size:13px;transition:transform .2s;flex:none}
+  .stepitem.open .sichev{transform:rotate(90deg)}
+  .sibody{max-height:0;overflow:hidden;transition:max-height .28s ease}
+  .stepitem.open .sibody{max-height:340px}
+  .sibody p{font-size:13px;color:#d4c8b4;padding:0 13px 13px 76px}
+
+  .foot{text-align:center;color:#5c4f3f;font-size:12px;margin-top:18px;letter-spacing:.03em}
+
+  @media (prefers-reduced-motion: reduce){ .now.fire .dot{animation:none} button:active{transform:none} }
+</style>
+</head>
+<body>
+
+  <div class="top">
+    <div class="eyebrow">Пульт лінії</div>
+    <h1>Грибна підлива на серцевому бульйоні</h1>
+    <div class="sub">Активно ~15 хв · спершу підготуй усе нижче</div>
+  </div>
+
+  <!-- shopping list -->
+  <div class="card prep" id="shop">
+    <div class="prephead" id="shopHead">
+      <span class="ttl">Список продуктів</span>
+      <span class="cnt" id="shopCnt">0/9</span>
+      <span class="chev">&#9656;</span>
+    </div>
+    <div class="prepbody" id="shopBody"></div>
+  </div>
+
+  <!-- prep -->
+  <div class="card prep open" id="prep">
+    <div class="prephead" id="prepHead">
+      <span class="ttl">Підготовка перед стартом</span>
+      <span class="cnt" id="prepCnt">0/7</span>
+      <span class="chev">&#9656;</span>
+    </div>
+    <div class="prepbody" id="prepBody"></div>
+  </div>
+
+  <!-- clock -->
+  <div class="clockwrap">
+    <div class="clockrow">
+      <div class="clock" id="clock">0:00<span class="unit">хв</span></div>
+      <div class="phase">Етап<b id="phaseName">Підготовка</b></div>
+    </div>
+    <div class="controls">
+      <button class="btn-go" id="go">Старт</button>
+      <button class="btn-reset" id="reset">Скинути</button>
+    </div>
+    <div class="preview">
+      <label><input type="checkbox" id="fast"><span class="sw"></span>Прев'ю ×12 (без чекання)</label>
+    </div>
+  </div>
+
+  <!-- now -->
+  <div class="now" id="now">
+    <div class="tag"><span class="dot"></span><span id="nowTag">Перед стартом</span></div>
+    <h2 id="nowTitle">Постав сковорідку</h2>
+    <p id="nowBody">Познач галочками все, що підготував. Натисни «Старт», коли цибуля порізана й сковорідка на вогні.</p>
+    <div class="look" id="look">
+      <span class="li" id="lookTxt"></span>
+      <span class="lcd" id="lookCd"></span>
+    </div>
+  </div>
+
+  <!-- timeline -->
+  <div class="tlhead">
+    <span class="t">Хід приготування</span>
+    <span class="legend">червона точка = зараз</span>
+  </div>
+  <div class="tl">
+    <div class="tlbar"><div class="tlfill" id="tlfill"></div><div class="tlknob" id="tlknob"></div></div>
+    <div id="marks"></div>
+  </div>
+
+  <!-- all steps -->
+  <div class="tlhead" style="margin-top:18px">
+    <span class="t">Всі кроки</span>
+    <span class="legend">тапни, щоб розгорнути</span>
+  </div>
+  <div class="steplist" id="stepList"></div>
+
+  <div class="foot">Любим маму, любим папу.</div>
+
+<script>
+(function(){
+  var TOTAL=15;       // активних хвилин
+  var LEAD=60;        // за скільки секунд попереджати про наступний крок
+
+  var prepItems=[
+    "Цибуля — почистити, дрібно порізати",
+    "Печериці — помити, нарізати пластинками",
+    "Часник — почистити, подрібнити",
+    "Бульйон — дістати й прогріти до теплого, тримати поряд",
+    "Борошно — відміряти 1½ ст. ложки в мисочку",
+    "Сметана/вершки — відміряти ~2½ ст. ложки",
+    "Масло, сіль, перець, зелень — напоготові"
+  ];
+
+  var steps=[
+    {t:0,  tag:"0:00 · Старт",  short:"Цибуля", title:"Цибуля на масло",
+      body:"Розігрій масло на середньому вогні. Кинь цибулю, дрібку солі, смаж до м'якості й прозорості. Не золотити."},
+    {t:3,  tag:"~3 хв",         short:"Гриби",  title:"Додай гриби",
+      body:"Цибуля м'яка — закидай печериці. Смаж, поки не випарується волога й гриби не підрум'яняться. В останню хвилину — часник."},
+    {t:8,  tag:"~8 хв",         short:"Борошно",title:"Засмажка: борошно",
+      body:"Всип борошно прямо до грибів, розмішай і прогрій ~1 хв, поки не вбере масло й не запахне горіхово. Це прибирає сирий присмак борошна."},
+    {t:9,  tag:"~9 хв",         short:"Бульйон",title:"Вливай бульйон",
+      body:"Лий теплий бульйон ПОТРОХУ, постійно помішуючи — так не буде грудок. Доведи до легкого кипіння і тримай на тихому вогні, поки не загусне (обволікає ложку)."},
+    {t:14, tag:"~14 хв",        short:"Фініш", title:"Сметана + сіль",
+      body:"Зменш вогонь, вмішай сметану/вершки, прогрій без бурхливого кипіння. СІЛЬ: почни з ½ ч.л., далі куштуй і досолюй — бульйон уже підсолений. Перець, зелень. Готово.", end:true}
+  ];
+
+  var $=function(id){return document.getElementById(id);};
+  var clockEl=$("clock"),phaseEl=$("phaseName"),goBtn=$("go"),resetBtn=$("reset"),fastEl=$("fast"),
+      nowEl=$("now"),nowTag=$("nowTag"),nowTitle=$("nowTitle"),nowBody=$("nowBody"),
+      lookEl=$("look"),lookTxt=$("lookTxt"),lookCd=$("lookCd"),
+      tlfill=$("tlfill"),tlknob=$("tlknob");
+
+  function fmt(s){s=Math.max(0,Math.floor(s));var m=Math.floor(s/60),x=s%60;return m+":"+(x<10?"0":"")+x;}
+
+  // ---- shopping list ----
+  var shopGroups=[
+    {label:"Докупити", cls:"buy", items:[
+      "Печериці — 8 шт (≈250 г, 1 упаковка)",
+      "Сметана або вершки — мала баночка (треба 2½ ст. ложки)",
+      "Зелень — пучок (опційно, на подачу)"
+    ]},
+    {label:"Перевірити вдома", cls:"have", items:[
+      "Серцевий бульйон — 2 склянки (вже є)",
+      "Цибуля — 1 шт",
+      "Часник — 1 зубчик",
+      "Вершкове масло — 2 ст. ложки",
+      "Борошно — 1½ ст. ложки",
+      "Сіль ½ ч.л. + чорний перець ¼ ч.л."
+    ]}
+  ];
+  var shopBody=$("shopBody"),shopCnt=$("shopCnt"),shopChecked=0,shopTotal=0;
+  function mkCheckRow(txt,onToggle){
+    var row=document.createElement("div");row.className="checkrow";
+    row.innerHTML='<span class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2 8.5L6 12.5L14 3.5" stroke="#140d06" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="lbl">'+txt+'</span>';
+    row.addEventListener("click",function(){row.classList.toggle("on");onToggle(row.classList.contains("on"));});
+    return row;
+  }
+  shopGroups.forEach(function(g){
+    var gl=document.createElement("div");gl.className="grouplbl "+g.cls;gl.textContent=g.label;shopBody.appendChild(gl);
+    g.items.forEach(function(txt){
+      shopTotal++;
+      shopBody.appendChild(mkCheckRow(txt,function(on){
+        shopChecked+=on?1:-1;shopCnt.textContent=shopChecked+"/"+shopTotal;
+        shopCnt.classList.toggle("done",shopChecked===shopTotal);
+      }));
+    });
+  });
+  shopCnt.textContent="0/"+shopTotal;
+  $("shopHead").addEventListener("click",function(){$("shop").classList.toggle("open");});
+
+  // ---- prep checklist ----
+  var prepBody=$("prepBody"),prepCnt=$("prepCnt"),checked=0;
+  prepItems.forEach(function(txt){
+    var row=document.createElement("div");row.className="checkrow";
+    row.innerHTML='<span class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2 8.5L6 12.5L14 3.5" stroke="#140d06" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="lbl">'+txt+'</span>';
+    row.addEventListener("click",function(){
+      row.classList.toggle("on");
+      checked+=row.classList.contains("on")?1:-1;
+      prepCnt.textContent=checked+"/"+prepItems.length;
+      prepCnt.classList.toggle("done",checked===prepItems.length);
+    });
+    prepBody.appendChild(row);
+  });
+  $("prepHead").addEventListener("click",function(){$("prep").classList.toggle("open");});
+
+  // ---- timeline marks ----
+  var marksWrap=$("marks"),markEls=[];
+  steps.forEach(function(st){
+    var mk=document.createElement("div");mk.className="mk";mk.style.left=(st.t/TOTAL*100)+"%";
+    mk.innerHTML='<div class="nm">'+st.short+'</div><div class="pt"></div><div class="min">'+(st.t===0?"0":st.t)+'</div>';
+    marksWrap.appendChild(mk);markEls.push(mk);
+  });
+
+  // ---- steps list ----
+  var stepList=$("stepList"),stepItemEls=[];
+  steps.forEach(function(st){
+    var it=document.createElement("div");it.className="stepitem";
+    var hd=document.createElement("div");hd.className="sihead";
+    hd.innerHTML='<div class="sinum">'+(st.t===0?"старт":st.t+" хв")+'</div><div class="sititle">'+st.title+'</div><div class="sichev">&#9656;</div>';
+    var bd=document.createElement("div");bd.className="sibody";bd.innerHTML='<p>'+st.body+'</p>';
+    it.appendChild(hd);it.appendChild(bd);
+    hd.addEventListener("click",function(){it.classList.toggle("open");});
+    stepList.appendChild(it);stepItemEls.push(it);
+  });
+
+  // ---- audio ----
+  var actx=null;
+  function beep(kind){ // kind: 'soft' warn, 'go' step, 'end'
+    try{
+      if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();
+      var o=actx.createOscillator(),g=actx.createGain();o.connect(g);g.connect(actx.destination);
+      o.type="sine";o.frequency.value=kind==="end"?780:kind==="go"?620:440;
+      var t=actx.currentTime,d=kind==="soft"?.18:.32;
+      g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(kind==="soft"?.1:.18,t+.02);
+      g.gain.exponentialRampToValueAtTime(.001,t+d);o.start(t);o.stop(t+d+.05);
+    }catch(e){}
+  }
+
+  var elapsed=0,running=false,raf=null,last=0,firedTo=-1,lastCi=-2,leadFiredFor=-1;
+
+  function curIdx(min){var i=-1;for(var k=0;k<steps.length;k++){if(steps[k].t<=min)i=k;}return i;}
+
+  function render(){
+    var min=elapsed/60,pct=Math.min(min/TOTAL,1)*100;
+    clockEl.innerHTML=fmt(elapsed)+'<span class="unit">хв</span>';
+    tlfill.style.width=pct+"%";tlknob.style.left=pct+"%";
+
+    var ci=curIdx(min);
+    if(ci>=0){var st=steps[ci];nowTag.textContent=st.tag;nowTitle.textContent=st.title;nowBody.textContent=st.body;
+      phaseEl.textContent=min>=TOTAL?"Готово":st.short;}
+
+    markEls.forEach(function(mk,i){mk.classList.toggle("current",i===ci);mk.classList.toggle("done",i<ci);});
+    stepItemEls.forEach(function(it,i){it.classList.toggle("current",i===ci);it.classList.toggle("done",i<ci);});
+    if(ci!==lastCi){if(stepItemEls[ci])stepItemEls[ci].classList.add("open");lastCi=ci;}
+
+    // наступний крок + випередження
+    var nx=null,nxi=-1;
+    for(var k=0;k<steps.length;k++){if(steps[k].t>min+1e-6){nx=steps[k];nxi=k;break;}}
+    if(nx){
+      var left=nx.t*60-elapsed;
+      if(left<=LEAD){
+        lookEl.classList.add("show");
+        lookTxt.innerHTML="Готуйся: <b>"+nx.title+"</b>";
+        lookCd.textContent="через "+fmt(left);
+        if(running&&leadFiredFor!==nxi){beep("soft");leadFiredFor=nxi;}
+      }else{ lookEl.classList.remove("show"); }
+    }else{ lookEl.classList.remove("show"); }
+
+    // тривога на кроці
+    if(running&&ci>firedTo){
+      for(var j=firedTo+1;j<=ci;j++){
+        nowEl.classList.add("fire");beep(steps[j].end?"end":"go");
+        clearTimeout(window.__ft);window.__ft=setTimeout(function(){nowEl.classList.remove("fire");},5000);
+      }
+      firedTo=ci;
+    }
+  }
+
+  function tick(ts){
+    if(!running)return;if(!last)last=ts;
+    var dt=(ts-last)/1000;last=ts;
+    elapsed+=dt*(fastEl.checked?12:1);
+    if(elapsed>=TOTAL*60)elapsed=TOTAL*60;
+    render();
+    if(elapsed>=TOTAL*60){running=false;goBtn.textContent="Готово";goBtn.classList.remove("run");return;}
+    raf=requestAnimationFrame(tick);
+  }
+
+  goBtn.addEventListener("click",function(){
+    if(!actx){try{actx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}}
+    if(elapsed>=TOTAL*60)return;
+    running=!running;
+    if(running){goBtn.textContent="Пауза";goBtn.classList.add("run");$("prep").classList.remove("open");last=0;raf=requestAnimationFrame(tick);}
+    else{goBtn.textContent="Далі";goBtn.classList.remove("run");cancelAnimationFrame(raf);}
+  });
+
+  resetBtn.addEventListener("click",function(){
+    running=false;cancelAnimationFrame(raf);elapsed=0;firedTo=-1;lastCi=-2;leadFiredFor=-1;last=0;
+    goBtn.textContent="Старт";goBtn.classList.remove("run");nowEl.classList.remove("fire");lookEl.classList.remove("show");
+    nowTag.textContent="Перед стартом";nowTitle.textContent="Постав сковорідку";
+    nowBody.textContent="Познач галочками все, що підготував. Натисни «Старт», коли цибуля порізана й сковорідка на вогні.";
+    phaseEl.textContent="Підготовка";tlfill.style.width="0%";tlknob.style.left="0%";
+    markEls.forEach(function(m){m.classList.remove("current","done");});
+    stepItemEls.forEach(function(i){i.classList.remove("current","done");});
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
