@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Рулька">
+<meta name="theme-color" content="#14100C">
+<title>Пульт лінії — Рулька в пиві</title>
+<style>
+  :root{
+    --bg:#14100C; --panel:#1F1813; --panel2:#2A2017; --edge:#3A2D20;
+    --text:#F0E6D6; --dim:#9C8C76;
+    --ember:#F0851F; --signal:#E03B25; --warn:#E7C34A; --ok:#8FA83E;
+    --pot:#C0472F; --hands:#D7A12B; --oven:#E07A22; --cab:#7FA046;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --disp:-apple-system,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{background:var(--bg);color:var(--text);font-family:var(--disp)}
+  body{
+    padding:calc(14px + env(safe-area-inset-top)) 14px calc(28px + env(safe-area-inset-bottom));
+    max-width:560px;margin:0 auto;line-height:1.4;
+    background-image:radial-gradient(120% 80% at 50% -10%,#221a12 0%,var(--bg) 60%);
+    min-height:100vh;
+  }
+  button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+
+  .top{margin-bottom:12px}
+  .eyebrow{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ember);font-weight:700}
+  .top h1{font-size:22px;font-weight:800;margin-top:2px}
+  .top .sub{font-size:12px;color:var(--dim);margin-top:2px}
+
+  .card{background:var(--panel);border:1px solid var(--edge);border-radius:14px;margin-bottom:12px}
+  .sec-h{display:flex;align-items:center;gap:10px;padding:13px 15px;user-select:none;-webkit-user-select:none}
+  .sec-h .ttl{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;flex:1}
+  .sec-h .cnt{font-family:var(--mono);font-size:13px;color:var(--warn);font-weight:700}
+  .sec-h .cnt.done{color:var(--ok)}
+  .chev{color:var(--dim);transition:transform .2s;font-size:11px}
+  .fold .sec-h{cursor:pointer}
+  .fold .body{display:none}
+  .fold.open .body{display:block}
+  .fold.open .chev{transform:rotate(180deg)}
+
+  .prep ul{list-style:none;padding:0 10px 8px}
+  .prep li label{position:relative;display:flex;gap:12px;align-items:flex-start;padding:10px 6px;border-top:1px solid var(--edge);cursor:pointer;font-size:15px}
+  .prep input{position:absolute;opacity:0;pointer-events:none}
+  .prep .box{flex:none;width:22px;height:22px;border:2px solid var(--dim);border-radius:6px;margin-top:1px;display:grid;place-items:center;font-size:14px;font-weight:900;color:var(--bg)}
+  .prep input:checked + .box{background:var(--ok);border-color:var(--ok)}
+  .prep input:checked + .box::after{content:"✓"}
+  .prep input:checked ~ .txt{color:var(--dim);text-decoration:line-through}
+
+  .clockwrap{
+    background:linear-gradient(180deg,var(--panel2),var(--panel));
+    border:1px solid var(--edge);border-radius:16px;padding:14px 16px;margin-bottom:12px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+  }
+  .clock{font-family:var(--mono);font-size:clamp(46px,15vw,66px);font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .clockmeta{font-size:13px;color:var(--dim);margin-top:8px;font-variant-numeric:tabular-nums}
+  .clockmeta b{color:var(--text)}
+  .btns{display:flex;gap:10px;margin-top:14px}
+  .btn{flex:1;padding:14px 10px;border-radius:12px;font-weight:800;font-size:16px;letter-spacing:.02em;background:var(--panel2);border:1px solid var(--edge)}
+  .btn.primary{background:var(--ember);color:#1a0f05;border-color:var(--ember)}
+  .btn:disabled{opacity:.5}
+  .btn.small{flex:none;padding:14px 16px}
+  .pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .pill{font-size:12px;padding:6px 11px;border-radius:999px;border:1px solid var(--edge);color:var(--dim)}
+  .pill.on{color:var(--ok);border-color:var(--ok)}
+  .pill.pv.on{color:var(--warn);border-color:var(--warn)}
+
+  .now{padding:15px;transition:border-color .2s}
+  .now .lbl{display:flex;justify-content:space-between;gap:10px;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ember)}
+  .now .lbl .rem{font-family:var(--mono);letter-spacing:0;color:var(--text);text-transform:none}
+  .now .what{font-size:22px;font-weight:800;margin-top:8px;line-height:1.2}
+  .now .do{font-size:16px;margin-top:6px}
+  .now .hint{font-size:13px;color:var(--dim);margin-top:8px}
+  .bar{height:6px;background:var(--panel2);border-radius:99px;margin-top:12px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--ember);border-radius:99px;transition:width .25s linear}
+  .now.act{border-color:var(--signal);animation:pulse 1s ease-in-out infinite}
+  .now.act .what{color:#ff6a50}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(224,59,37,0)}50%{box-shadow:0 0 0 6px rgba(224,59,37,.35)}}
+  .ack{display:none;width:100%;margin-top:12px;padding:15px;border-radius:12px;background:var(--signal);color:#fff;font-weight:800;font-size:17px}
+  .now.act .ack{display:block}
+  .ext{display:none;width:100%;margin-top:10px;padding:13px;border-radius:12px;border:1px dashed var(--ember);color:var(--ember);font-weight:800;font-size:15px}
+  .ext.show{display:block}
+  .look{display:none;margin-top:12px;padding:11px 13px;border-radius:12px;background:rgba(231,195,74,.12);border:1px solid rgba(231,195,74,.5);color:var(--warn);font-size:14px}
+  .look.show{display:block}
+  .look b{font-family:var(--mono)}
+  .next{margin-top:12px;font-size:13px;color:var(--dim)}
+  .next b{color:var(--text)}
+  .next:empty{display:none}
+
+  .lanes{padding:13px 15px 12px}
+  .lanes .sec-h{padding:0 0 10px}
+  .lgrid{position:relative}
+  .lane{display:flex;align-items:center;height:30px;margin-bottom:6px}
+  .lane .ln{width:70px;flex:none;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--dim)}
+  .track{position:relative;flex:1;height:100%;background:var(--panel2);border-radius:8px;overflow:hidden}
+  .seg{position:absolute;top:3px;bottom:3px;border-radius:6px;background:var(--c);opacity:.5;font-size:10px;font-weight:800;color:#170f08;padding:0 5px;white-space:nowrap;overflow:hidden;text-overflow:clip;display:flex;align-items:center}
+  .seg.on{opacity:1;box-shadow:0 0 10px var(--c)}
+  .seg.past{opacity:.2}
+  .mk{position:absolute;top:50%;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;border-radius:50%;background:var(--c);border:2px solid var(--panel2)}
+  .mk.past{opacity:.35}
+  .axis{position:relative;height:16px;margin-left:70px;font-size:10px;color:var(--dim);font-family:var(--mono)}
+  .axis span{position:absolute;top:2px;transform:translateX(-50%);white-space:nowrap}
+  .axis span:first-child{transform:none}
+  .ph{position:absolute;top:-4px;bottom:16px;width:2px;background:var(--text);box-shadow:0 0 8px rgba(240,230,214,.7);pointer-events:none;transform:translateX(-1px);display:none}
+
+  .steps ol{list-style:none;padding:0 10px 8px}
+  .steps li{display:flex;gap:10px;padding:10px 6px;border-top:1px solid var(--edge)}
+  .steps .dot{width:8px;height:8px;border-radius:50%;flex:none;margin-top:7px}
+  .steps .t{flex:none;width:50px;font-family:var(--mono);font-size:13px;color:var(--dim);padding-top:2px;line-height:1.3}
+  .steps .t small{display:block;font-size:11px}
+  .steps .st{font-weight:800;font-size:15px}
+  .steps .sd{font-size:14px;color:var(--dim);margin-top:2px}
+  .steps li.past{opacity:.42}
+  .steps li.cur{background:rgba(240,133,31,.1);border-radius:10px;border-top-color:transparent}
+  .steps li.cur .st{color:var(--ember)}
+
+  .notes .body{padding:0 15px 13px}
+  .notes p{font-size:14px;color:var(--dim);margin-top:8px}
+  .notes p:first-child{margin-top:0}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="eyebrow">Пульт лінії</div>
+  <h1>Рулька в пиві з тушкованою капустою</h1>
+  <div class="sub">2 порції · ≈ 3 год 40 хв · активно ~45 хв</div>
+</header>
+
+<section class="card fold prep" id="prep">
+  <div class="sec-h"><span class="ttl">Підготовка до старту</span><span class="cnt" id="prepCnt"></span><span class="chev">▼</span></div>
+  <div class="body"><ul id="prepList"></ul></div>
+</section>
+
+<section class="clockwrap">
+  <div class="clock" id="clock">0:00:00</div>
+  <div class="clockmeta" id="meta"></div>
+  <div class="btns">
+    <button class="btn primary" id="mainBtn">Старт</button>
+    <button class="btn small" id="resetBtn">Скинути</button>
+  </div>
+  <div class="pills">
+    <button class="pill" id="sndPill"></button>
+    <button class="pill" id="wakePill"></button>
+    <button class="pill pv" id="pvPill"></button>
+  </div>
+</section>
+
+<section class="card now" id="now">
+  <div class="lbl"><span id="nowLbl"></span><span class="rem" id="nowRem"></span></div>
+  <div class="what" id="nowWhat"></div>
+  <div class="do" id="nowDo"></div>
+  <div class="hint" id="nowHint"></div>
+  <div class="bar"><i id="nowBar"></i></div>
+  <button class="ack" id="ackBtn">Зроблено ✓</button>
+  <button class="ext" id="extBtn"></button>
+  <div class="look" id="look"></div>
+  <div class="next" id="next"></div>
+</section>
+
+<section class="card lanes">
+  <div class="sec-h"><span class="ttl">Доріжки</span><span class="cnt" id="totalLbl"></span></div>
+  <div class="lgrid">
+    <div class="lane"><span class="ln">Каструля</span><div class="track" id="tr-pot"></div></div>
+    <div class="lane"><span class="ln">Руки</span><div class="track" id="tr-hands"></div></div>
+    <div class="lane"><span class="ln">Духовка</span><div class="track" id="tr-oven"></div></div>
+    <div class="lane"><span class="ln">Капуста</span><div class="track" id="tr-cab"></div></div>
+    <div class="axis" id="axis"></div>
+    <div class="ph" id="ph"></div>
+  </div>
+</section>
+
+<section class="card fold open steps" id="steps">
+  <div class="sec-h"><span class="ttl">Усі кроки</span><span class="chev">▼</span></div>
+  <div class="body"><ol id="stepList"></ol></div>
+</section>
+
+<section class="card fold notes" id="notes">
+  <div class="sec-h"><span class="ttl">Поради</span><span class="chev">▼</span></div>
+  <div class="body">
+    <p>Пиво бери нехмільне: лагер, дункель, бок. IPA та інші хмільні сорти за 2,5 год варіння починають гірчити.</p>
+    <p>Якщо рідина не покриває рульку й доливаєш воду — на кожні 0,5 л води ще 7 г солі.</p>
+    <p>Без глазурі шкіра хрусткіша, з медом — глянцевіша й солодкувата.</p>
+    <p>Сіль у капусті розрахована з поправкою на солоний бульйон: 300 мл бульйону дають близько 4 г солі, разом із 6 г виходить приблизно 1% — норма для тушкованої капусти.</p>
+    <p>Решту бульйону (близько 1,5 л) не виливай — заморозь порціями, це основа для супу чи наступної капусти.</p>
+    <p>Замість духовки можна допекти на Weber: непрямий жар ~200–220°C, 30–35 хв, глазур на останні 15 хв.</p>
+    <p>Пульт пам’ятає стан: вкладку можна закрити й відкрити знову — час іде далі. Але сигнал звучить лише тоді, коли сторінка відкрита.</p>
+  </div>
+</section>
+
+<script>
+(function(){
+  'use strict';
+  var KEY='rulka-pult-v1';
+  var LANES={pot:'var(--pot)',hands:'var(--hands)',oven:'var(--oven)',cab:'var(--cab)'};
+  var ORDER=['p1','p2','p3','p4','p5','p6'];
+  var PH={
+    p1:{name:'Закипання',hint:'Сильний вогонь. Як закипить — знімай піну, не чекаючи сигналу.'},
+    p2:{name:'Варіння',hint:'Ледь помітне кипіння під кришкою. Можна відійти — пульт покличе.'},
+    p3:{name:'Обсушування',hint:'Рулька на решітці: пара виходить, шкіра підсихає — тоді вона хрумтітиме.'},
+    p4:{name:'Запікання',hint:'Без глазурі — шкіра підсихає й починає хрумтіти.'},
+    p5:{name:'Допікання з глазур’ю',hint:'До темно-золотої хрусткої шкіри.'},
+    p6:{name:'Відпочинок',hint:'Хай постоїть — сік розійдеться по м’ясу.'}
+  };
+  var PREP=[
+    {id:'a',t:'Рулька 1,4 кг — обпалити залишки щетини, зашкребти шкіру ножем, промити'},
+    {id:'b',t:'Пиво 1 л — лагер, світлий або темний (не IPA)'},
+    {id:'c',t:'Вода 1 л'},
+    {id:'d',t:'Сіль дрібна — 30 г'},
+    {id:'e',t:'Цибулина середня з лушпинням — розрізати навпіл'},
+    {id:'f',t:'Морквина середня — великими шматками'},
+    {id:'g',t:'Часник 5 зубчиків — розчавити'},
+    {id:'h',t:'Лавровий лист 3 шт, перець горошком 1 ч. л., кмин 1 ч. л.'},
+    {id:'i',t:'На глазур: гірчиця 2 ст. л., мед 1 ст. л.'},
+    {id:'l',t:'Для капусти: свіжа капуста 800 г (≈ половина середнього качана), ще одна цибулина й морквина — наріжеш під час варіння'},
+    {id:'m',t:'Для капусти: томатна паста 1 ст. л., цукор 1 ч. л., сіль 6 г, кмин 0,5 ч. л., лавровий лист 1 шт, мелений чорний перець 0,25 ч. л.'},
+    {id:'j',t:'Посуд: каструля, де рулька майже покривається рідиною; шумівка, щипці, решітка й деко; сотейник або глибока сковорода з кришкою, тертка, сито'},
+    {id:'k',t:'До подачі: гірчиця або хрін'}
+  ];
+  var DEF={startedAt:null,pausedAt:null,pausedTotal:0,ext:{p2:0,p5:0},preheatAt:null,last:0,checks:{},preview:false,prepOpen:null};
+
+  function clone(o){return JSON.parse(JSON.stringify(o));}
+  function load(){
+    try{
+      var r=localStorage.getItem(KEY);
+      if(r){
+        var o=JSON.parse(r),s=clone(DEF);
+        for(var k in o){if(Object.prototype.hasOwnProperty.call(s,k))s[k]=o[k];}
+        s.ext={p2:(o.ext&&o.ext.p2)||0,p5:(o.ext&&o.ext.p5)||0};
+        s.checks=o.checks||{};
+        return s;
+      }
+    }catch(e){}
+    return clone(DEF);
+  }
+  var S=load();
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+
+  var $=function(id){return document.getElementById(id);};
+  function pad(n){return (n<10?'0':'')+n;}
+  function fmt(sec){sec=Math.max(0,Math.floor(sec));return Math.floor(sec/3600)+':'+pad(Math.floor(sec%3600/60))+':'+pad(sec%60);}
+  function fmtHM(sec){sec=Math.max(0,Math.round(sec));return Math.floor(sec/3600)+':'+pad(Math.floor(sec%3600/60));}
+  function fmtCd(sec){sec=Math.max(0,Math.ceil(sec));return sec>=3600?fmt(sec):Math.floor(sec/60)+':'+pad(sec%60);}
+
+  function speed(){return S.preview?60:1;}
+  function elapsed(){
+    if(!S.startedAt)return 0;
+    var ref=S.pausedAt||Date.now();
+    return Math.max(0,(ref-S.startedAt-S.pausedTotal)/1000*speed());
+  }
+  function wallAt(t,el){
+    if(!S.startedAt||S.pausedAt||S.preview)return '';
+    var d=new Date(Date.now()+(t-el)*1000);
+    return pad(d.getHours())+':'+pad(d.getMinutes());
+  }
+
+  function sched(){
+    var d={p1:15,p2:150+S.ext.p2,p3:10,p4:20,p5:15+S.ext.p5,p6:10},t=0,ph={};
+    ORDER.forEach(function(k){ph[k]={s:t,e:t+d[k]*60};t+=d[k]*60;});
+    var pre=S.preheatAt!=null?S.preheatAt:ph.p2.e-1200;
+    var flip=ph.p2.s+75*60;
+    var glazeT=ph.p3.s+180;
+    var cutT=ph.p2.s+105*60;
+    var c1=ph.p3.s+360,c2=ph.p3.s+720,c3=ph.p3.s+1200,c4=ph.p6.e-300;
+    var ev=[
+      {id:'start',t:0,lane:'pot',lead:0,title:'Каструля на вогонь',
+       act:'Рулька, 1 л пива, 1 л води, 30 г солі, цибуля, морква, часник, лавр, перець і кмин — у каструлю. Сильний вогонь, доводь до кипіння.',prep:''},
+      {id:'simmer',t:ph.p2.s,lane:'pot',lead:120,title:'Закипіло — на мінімум',
+       act:'Зніми піну шумівкою, зменш вогонь до ледь помітного кипіння й накрий кришкою.',prep:'Шумівку й миску для піни — під руку.'},
+      {id:'flip',t:flip,lane:'hands',lead:60,title:'Переверни рульку',
+       act:'Переверни рульку щипцями, щоб проварилась рівно, і накрий кришкою.',prep:'Щипці — під руку.'},
+      {id:'cut',t:cutT,lane:'hands',lead:120,title:'Наріж овочі для капусти',
+       act:'Поки рулька вариться: 800 г капусти — тонкими смужками по 5 мм, цибулину — півкільцями, морквину — на крупній тертці. Цибулю з морквою склади в одну миску, капусту — в іншу.',prep:'Дошку, ніж, тертку й дві миски — на стіл.'},
+      {id:'preheat',t:pre,lane:'oven',lead:120,title:'Увімкни духовку',
+       act:'Духовка на 220°C, з конвекцією, якщо є. Решітку — посередині.',prep:'Звільни духовку від дек і форм.'},
+      {id:'check',t:ph.p2.e,lane:'pot',lead:300,title:'Перевір ножем',
+       act:'Ніж заходить у м’ясо без опору — виймай рульку на решітку. Тугувато — тисни «+15 хв варіння».',prep:'Решітку, сито й миску для бульйону — під руку.'},
+      {id:'glaze',t:glazeT,lane:'hands',lead:60,title:'Бульйон і глазур',
+       act:'Процідь бульйон у миску. Зніми ложкою з поверхні 2 ст. л. жиру — для капусти. Відміряй 300 мл бульйону для капусти. Для глазурі змішай 2 ст. л. гірчиці, 1 ст. л. меду й 2 ст. л. бульйону.',prep:'Мірну склянку, гірчицю, мед і ложку — на стіл.'},
+      {id:'cab1',t:c1,lane:'cab',lead:120,title:'Капуста: засмажка',
+       act:'Сотейник на середній вогонь, 2 ст. л. жиру з бульйону (або олії). Цибулю й моркву смаж 6 хв, помішуючи, до м’якості.',prep:'Сотейник із кришкою й миску з цибулею та морквою — до плити.'},
+      {id:'cab2',t:c2,lane:'cab',lead:60,title:'Капусту — в сотейник',
+       act:'Додай капусту, 6 г солі (1 ч. л. без гірки) і 0,5 ч. л. кмину. Перемішай і смаж 8 хв на вогні трохи сильнішому за середній, помішуючи, поки капуста не осяде вдвічі.',prep:'Капусту, сіль і кмин — біля плити.'},
+      {id:'cab3',t:c3,lane:'cab',lead:60,title:'Капусту — тушкувати',
+       act:'Вмішай 1 ст. л. томатної пасти й 1 ч. л. цукру, прогрій 1 хв. Влий 300 мл бульйону, поклади 1 лавровий лист, накрий кришкою. Тихий вогонь; раз на 10 хв помішуй.',prep:'Томатну пасту, цукор, лавр і відміряний бульйон — біля плити.'},
+      {id:'cab4',t:c4,lane:'cab',lead:60,title:'Капуста: фініш',
+       act:'Зніми кришку, вийми лавровий лист, всип 0,25 ч. л. меленого перцю. Якщо на дні багато рідини — потримай 3 хв без кришки. Спробуй: якщо прісно — ще 1 г солі.',prep:'Ложку для проби — під руку.'},
+      {id:'roast',t:ph.p4.s,lane:'oven',lead:120,title:'У духовку',
+       act:'Рульку — на решітку, під неї деко зі склянкою води, щоб жир не димів. 220°C.',prep:'Набери склянку води для дека.'},
+      {id:'brush',t:ph.p5.s,lane:'hands',lead:120,title:'Змасти глазур’ю',
+       act:'Вийми рульку, змасти глазур’ю з усіх боків і поверни в духовку.',prep:'Глазур і ложку чи пензлик — біля духовки.'},
+      {id:'out',t:ph.p6.s,lane:'oven',lead:180,title:'Виймай',
+       act:'Шкіра темно-золота й хрустка — виймай на дошку. Ще бліда — тисни «+5 хв допікання».',prep:'Дошку й рукавиці — під руку.'},
+      {id:'serve',t:ph.p6.e,lane:'hands',lead:120,title:'Подавай',
+       act:'Подавай рульку з тушкованою капустою, гірчицею або хроном. Смачного!',prep:'Гірчицю й тарілки — на стіл.'}
+    ];
+    ev.sort(function(a,b){return a.t-b.t;});
+    var segs=[
+      {lane:'pot',s:ph.p1.s,e:ph.p1.e,label:'Закипання'},
+      {lane:'pot',s:ph.p2.s,e:ph.p2.e,label:'Варіння під кришкою'},
+      {lane:'hands',s:ph.p3.s,e:ph.p3.e,label:'Обсушити'},
+      {lane:'hands',s:ph.p6.s,e:ph.p6.e,label:'Відпочинок'},
+      {lane:'oven',s:pre,e:ph.p4.s,label:'Розігрів'},
+      {lane:'oven',s:ph.p4.s,e:ph.p4.e,label:'220°C'},
+      {lane:'oven',s:ph.p5.s,e:ph.p5.e,label:'Глазур'},
+      {lane:'hands',s:cutT,e:cutT+900,label:'Нарізати'},
+      {lane:'cab',s:c1,e:c2,label:'Засмажка'},
+      {lane:'cab',s:c2,e:c3,label:'Обсмажити'},
+      {lane:'cab',s:c3,e:c4,label:'Тушкувати'},
+      {lane:'cab',s:c4,e:ph.p6.e,label:'Фініш'}
+    ];
+    var marks=[
+      {lane:'hands',t:flip,title:'Перевернути'},
+      {lane:'hands',t:ph.p5.s,title:'Змастити глазур’ю'}
+    ];
+    return {ph:ph,T:t,ev:ev,segs:segs,marks:marks};
+  }
+
+  var ac=null;
+  function audio(){
+    if(!ac){
+      var C=window.AudioContext||window.webkitAudioContext;
+      if(!C)return null;
+      try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(e){}
+      try{ac=new C();}catch(e){return null;}
+    }
+    if(ac.state==='suspended'){try{ac.resume();}catch(e){}}
+    return ac;
+  }
+  function tone(f,start,dur,vol){
+    var o=ac.createOscillator(),g=ac.createGain();
+    o.type='square';o.frequency.value=f;
+    g.gain.setValueAtTime(0.0001,start);
+    g.gain.exponentialRampToValueAtTime(vol,start+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001,start+dur);
+    o.connect(g);g.connect(ac.destination);
+    o.start(start);o.stop(start+dur+0.02);
+  }
+  function beep(strong){
+    var a=audio();
+    if(a){
+      var t=a.currentTime+0.02;
+      if(strong){tone(880,t,0.16,0.25);tone(880,t+0.22,0.16,0.25);tone(1320,t+0.44,0.22,0.25);}
+      else tone(660,t,0.12,0.15);
+    }
+    if(navigator.vibrate){try{navigator.vibrate(strong?[200,100,200]:80);}catch(e){}}
+  }
+  ['click','touchend'].forEach(function(ev){document.addEventListener(ev,function(){audio();},{capture:true,passive:true});});
+
+  var wl=null;
+  function reqWake(){
+    if(!('wakeLock' in navigator)||wl)return;
+    navigator.wakeLock.request('screen').then(function(s){
+      wl=s;s.addEventListener('release',function(){if(wl===s)wl=null;});
+    }).catch(function(){wl=null;});
+  }
+  function relWake(){if(wl){var s=wl;wl=null;s.release().catch(function(){});}}
+  function running(){return !!S.startedAt&&!S.pausedAt&&elapsed()<sched().T;}
+
+  var alertState={id:null,wall:0,lastBeep:0};
+
+  function renderPrep(){
+    $('prepList').innerHTML=PREP.map(function(p){
+      return '<li><label><input type="checkbox" data-id="'+p.id+'"'+(S.checks[p.id]?' checked':'')+'><span class="box"></span><span class="txt">'+p.t+'</span></label></li>';
+    }).join('');
+    updPrepCount();
+  }
+  function updPrepCount(){
+    var n=PREP.filter(function(p){return S.checks[p.id];}).length,c=$('prepCnt');
+    c.textContent=n+'/'+PREP.length;
+    c.className='cnt'+(n===PREP.length?' done':'');
+  }
+  $('prepList').addEventListener('change',function(e){
+    var id=e.target.getAttribute('data-id');
+    if(!id)return;
+    S.checks[id]=e.target.checked;save();updPrepCount();
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.fold > .sec-h'),function(h){
+    h.addEventListener('click',function(){
+      var f=h.parentNode;f.classList.toggle('open');
+      if(f.id==='prep'){S.prepOpen=f.classList.contains('open');save();}
+    });
+  });
+
+  var lanesSig='';
+  function renderLanes(sc,el,started){
+    var sig=JSON.stringify([sc.T,sc.segs,sc.marks]);
+    if(sig!==lanesSig){
+      lanesSig=sig;
+      ['pot','hands','oven','cab'].forEach(function(l){
+        var h='';
+        sc.segs.forEach(function(s){
+          if(s.lane!==l)return;
+          var wd=(s.e-s.s)/sc.T;
+          h+='<div class="seg" data-s="'+s.s+'" data-e="'+s.e+'" style="--c:'+LANES[l]+';left:'+(s.s/sc.T*100)+'%;width:'+(wd*100)+'%" title="'+s.label+'">'+(wd>=0.17?s.label:'')+'</div>';
+        });
+        sc.marks.forEach(function(m){
+          if(m.lane!==l)return;
+          h+='<div class="mk" data-t="'+m.t+'" style="--c:'+LANES[l]+';left:'+(m.t/sc.T*100)+'%" title="'+m.title+'"></div>';
+        });
+        $('tr-'+l).innerHTML=h;
+      });
+      var ax='';
+      for(var hr=0;hr*3600<sc.T-900;hr++){ax+='<span style="left:'+(hr*3600/sc.T*100)+'%">'+(hr===0?'0':hr+' год')+'</span>';}
+      $('axis').innerHTML=ax;
+      $('totalLbl').textContent=fmtHM(sc.T);
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('.seg'),function(d){
+      var s=+d.getAttribute('data-s'),e=+d.getAttribute('data-e');
+      d.classList.toggle('on',started&&el>=s&&el<e);
+      d.classList.toggle('past',started&&el>=e);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.mk'),function(d){
+      d.classList.toggle('past',started&&el>=+d.getAttribute('data-t'));
+    });
+    var ph=$('ph');
+    ph.style.display=started?'block':'none';
+    ph.style.left='calc(70px + (100% - 70px) * '+Math.min(1,el/sc.T)+')';
+  }
+
+  var stepsSig='';
+  function renderSteps(sc,el,started,curIdx){
+    var h=sc.ev.map(function(e,i){
+      var cls=!started?'':(i<curIdx?'past':(i===curIdx?'cur':''));
+      var w=started&&i>curIdx?wallAt(e.t,el):'';
+      return '<li class="'+cls+'"><span class="dot" style="background:'+LANES[e.lane]+'"></span><div class="t">'+fmtHM(e.t)+(w?'<small>≈ '+w+'</small>':'')+'</div><div><div class="st">'+e.title+'</div><div class="sd">'+e.act+'</div></div></li>';
+    }).join('');
+    if(h!==stepsSig){stepsSig=h;$('stepList').innerHTML=h;}
+  }
+
+  function renderNow(sc,el,started,done,curIdx,phk){
+    var lbl,rem='',what,act,hint,bar;
+    if(!started){
+      lbl='Готовність';what='Спершу — підготовка';
+      act='Відміть усе в чек-листі вгорі й тисни «Старт», коли каструля стає на вогонь.';
+      hint='Пульт веде весь процес: сигналить на кожен крок і заздалегідь підказує, що підготувати.';bar=0;
+    }else if(done){
+      var sv=sc.ev[sc.ev.length-1];
+      lbl='Готово';what='Подавай!';act=sv.act;hint='';bar=100;
+    }else{
+      var p=sc.ph[phk],cur=sc.ev[Math.max(0,curIdx)];
+      lbl='Зараз · '+PH[phk].name;rem='ще '+fmtCd(p.e-el);
+      what=cur.title;act=cur.act;
+      hint=PH[phk].hint+(S.pausedAt?' Пульт на паузі.':'');
+      bar=(el-p.s)/(p.e-p.s)*100;
+    }
+    $('nowLbl').textContent=lbl;$('nowRem').textContent=rem;
+    $('nowWhat').textContent=what;$('nowDo').textContent=act;
+    $('nowHint').textContent=hint;$('nowHint').style.display=hint?'':'none';
+    $('nowBar').style.width=Math.max(0,Math.min(100,bar))+'%';
+    $('now').classList.toggle('act',!!alertState.id);
+
+    var mode='';
+    if(started&&!done){
+      if((phk==='p2'&&sc.ph.p2.e-el<=600)||phk==='p3')mode='p2';
+      else if((phk==='p5'&&sc.ph.p5.e-el<=300)||phk==='p6')mode='p5';
+    }
+    var x=$('extBtn');
+    x.className='ext'+(mode?' show':'');
+    x.setAttribute('data-m',mode);
+    x.textContent=mode==='p2'?'+15 хв варіння — ще не м’яка':'+5 хв допікання — шкіра ще бліда';
+
+    var nx=null;
+    if(started&&!done){for(var j=0;j<sc.ev.length;j++){if(sc.ev[j].t>el){nx=sc.ev[j];break;}}}
+    var lk=$('look');
+    if(nx&&nx.lead&&nx.t-el<=nx.lead){
+      lk.className='look show';
+      lk.innerHTML='Готуйся · <b>'+fmtCd(nx.t-el)+'</b> до «'+nx.title+'». '+nx.prep;
+    }else lk.className='look';
+    if(nx){
+      var w=wallAt(nx.t,el);
+      $('next').innerHTML='Далі: <b>'+nx.title+'</b> через <b>'+fmtCd(nx.t-el)+'</b>'+(w?' (≈ '+w+')':'');
+    }else $('next').innerHTML='';
+  }
+
+  function renderPills(){
+    var s=$('sndPill'),ok=!!ac&&ac.state==='running';
+    s.textContent=ok?'Звук ✓ · перевірити':'Увімкнути звук';
+    s.className='pill'+(ok?' on':'');
+    var w=$('wakePill');
+    if(!('wakeLock' in navigator)){w.textContent='Не дай екрану згаснути';w.className='pill';}
+    else{w.textContent=wl?'Екран не гасне ✓':'Екран може згаснути';w.className='pill'+(wl?' on':'');}
+    var p=$('pvPill');
+    p.textContent=S.preview?'Прев’ю ×60 · увімкнено':'Прев’ю ×60';
+    p.className='pill pv'+(S.preview?' on':'');
+  }
+
+  function render(){
+    var sc=sched(),el=elapsed(),started=!!S.startedAt,done=started&&el>=sc.T;
+    $('clock').textContent=fmt(Math.min(el,sc.T));
+    var meta;
+    if(!started)meta='Загалом <b>'+fmt(sc.T)+'</b>'+(S.preview?' · прев’ю ×60':'');
+    else if(done)meta='<b>Готово</b> · '+fmt(sc.T);
+    else{
+      meta='Лишилось <b>'+fmt(sc.T-el)+'</b>';
+      var w=wallAt(sc.T,el);
+      if(w)meta+=' · готово ≈ <b>'+w+'</b>';
+      if(S.pausedAt)meta+=' · <b>пауза</b>';
+      if(S.preview)meta+=' · прев’ю ×60';
+    }
+    $('meta').innerHTML=meta;
+    var mb=$('mainBtn');
+    mb.textContent=!started?'Старт':(done?'Готово ✓':(S.pausedAt?'Продовжити':'Пауза'));
+    mb.disabled=done;
+    mb.className='btn'+(!started||S.pausedAt?' primary':'');
+    $('resetBtn').style.display=started?'':'none';
+
+    var curIdx=-1,phk=null;
+    if(started){sc.ev.forEach(function(e,i){if(e.t<=el)curIdx=i;});}
+    if(started&&!done){for(var i=0;i<ORDER.length;i++){if(el<sc.ph[ORDER[i]].e){phk=ORDER[i];break;}}}
+    renderNow(sc,el,started,done,curIdx,phk);
+    renderLanes(sc,el,started);
+    renderSteps(sc,el,started,curIdx);
+    renderPills();
+  }
+
+  var lastSave=0;
+  function tick(){
+    var sc=sched(),el=elapsed(),nowMs=Date.now();
+    if(S.startedAt&&!S.pausedAt){
+      if(el<S.last)S.last=el;
+      var fired=null,soft=false;
+      for(var i=0;i<sc.ev.length;i++){
+        var e=sc.ev[i];
+        if(e.t>S.last&&e.t<=el){
+          fired=e;
+          if(e.id==='preheat'&&S.preheatAt==null)S.preheatAt=e.t;
+        }else if(e.lead&&e.t>el&&e.t-e.lead>S.last&&e.t-e.lead<=el)soft=true;
+      }
+      if(fired){alertState={id:fired.id,wall:nowMs,lastBeep:nowMs};beep(true);}
+      else if(soft)beep(false);
+      if(alertState.id&&nowMs-alertState.wall<180000&&nowMs-alertState.lastBeep>15000){alertState.lastBeep=nowMs;beep(true);}
+      S.last=el;
+      if(fired||nowMs-lastSave>3000){lastSave=nowMs;save();}
+      if(el>=sc.T)relWake();
+    }
+    render();
+  }
+
+  function resetRun(){
+    S.startedAt=null;S.pausedAt=null;S.pausedTotal=0;S.ext={p2:0,p5:0};S.preheatAt=null;S.last=0;S.prepOpen=null;
+    alertState={id:null,wall:0,lastBeep:0};
+    relWake();save();
+    $('prep').classList.add('open');
+  }
+
+  $('mainBtn').addEventListener('click',function(){
+    audio();
+    if(!S.startedAt){
+      S.startedAt=Date.now();S.pausedAt=null;S.pausedTotal=0;S.last=0;S.preheatAt=null;S.ext={p2:0,p5:0};S.prepOpen=false;
+      $('prep').classList.remove('open');
+      reqWake();
+    }else if(S.pausedAt){
+      S.pausedTotal+=Date.now()-S.pausedAt;S.pausedAt=null;reqWake();
+    }else{
+      S.pausedAt=Date.now();relWake();
+    }
+    save();render();
+  });
+  $('resetBtn').addEventListener('click',function(){
+    if(confirm('Скинути таймер? Галочки підготовки лишаться.')){resetRun();render();}
+  });
+  $('ackBtn').addEventListener('click',function(){alertState.id=null;render();});
+  $('extBtn').addEventListener('click',function(){
+    var m=this.getAttribute('data-m');
+    var add={p2:15,p5:5}[m];
+    if(!add)return;
+    var sc=sched(),el=elapsed(),end=sc.ph[m].e;
+    S.ext[m]+=(Math.max(end,el)+add*60-end)/60;
+    alertState.id=null;save();render();
+  });
+  $('sndPill').addEventListener('click',function(){audio();beep(true);setTimeout(render,300);});
+  $('wakePill').addEventListener('click',function(){if(running())reqWake();setTimeout(render,300);});
+  $('pvPill').addEventListener('click',function(){
+    if(S.startedAt&&!confirm('Прев’ю скине поточний запуск. Продовжити?'))return;
+    resetRun();S.preview=!S.preview;save();render();
+  });
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='visible'){if(running())reqWake();tick();}
+  });
+  window.addEventListener('pageshow',tick);
+
+  $('prep').classList.toggle('open',S.prepOpen==null?!S.startedAt:S.prepOpen);
+  renderPrep();
+  if(running())reqWake();
+  tick();
+  setInterval(tick,250);
+})();
+</script>
+</body>
+</html>
